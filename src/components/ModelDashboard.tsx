@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../hooks/useContent';
@@ -9,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { DollarSign, Users, CheckCircle, XCircle, Edit, Trash2, Image, Video } from 'lucide-react';
+import { DollarSign, Users, CheckCircle, XCircle, Edit, Trash2, Image, Video, Plus } from 'lucide-react';
 import FileUpload from './FileUpload';
 
 const ModelDashboard = () => {
@@ -27,6 +29,7 @@ const ModelDashboard = () => {
     mediaFiles: [] as string[],
     mediaType: 'image' as 'image' | 'video' | 'both'
   });
+  const [editingContent, setEditingContent] = useState<any>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
@@ -43,7 +46,7 @@ const ModelDashboard = () => {
 
   const handleContentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newContent.title || !newContent.description || newContent.price <= 0) {
+    if (!newContent.title || !newContent.description) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -70,7 +73,6 @@ const ModelDashboard = () => {
       return;
     }
 
-    // Determinar tipo de mídia baseado nos arquivos enviados
     const hasImages = newContent.mediaFiles.some(file => file.startsWith('data:image/'));
     const hasVideos = newContent.mediaFiles.some(file => file.startsWith('data:video/'));
     
@@ -86,6 +88,7 @@ const ModelDashboard = () => {
       mediaType,
       modelId: user?.id || '',
       isActive: true,
+      price: 0, // Conteúdo não tem preço individual, é incluído no plano mensal
     });
 
     setNewContent({
@@ -99,8 +102,61 @@ const ModelDashboard = () => {
 
     toast({
       title: "Sucesso!",
-      description: "Conteúdo adicionado com sucesso",
+      description: "Conteúdo adicionado ao seu portfolio",
     });
+  };
+
+  const handleEditContent = (content: any) => {
+    setEditingContent({
+      ...content,
+      originalThumbnail: content.thumbnail,
+      originalMediaFiles: [...content.mediaFiles]
+    });
+  };
+
+  const handleUpdateContent = () => {
+    if (!editingContent.title || !editingContent.description) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const hasImages = editingContent.mediaFiles.some((file: string) => file.startsWith('data:image/'));
+    const hasVideos = editingContent.mediaFiles.some((file: string) => file.startsWith('data:video/'));
+    
+    let mediaType: 'image' | 'video' | 'both' = 'image';
+    if (hasImages && hasVideos) {
+      mediaType = 'both';
+    } else if (hasVideos) {
+      mediaType = 'video';
+    }
+
+    updateContent(editingContent.id, {
+      title: editingContent.title,
+      description: editingContent.description,
+      thumbnail: editingContent.thumbnail,
+      mediaFiles: editingContent.mediaFiles,
+      mediaType
+    });
+
+    setEditingContent(null);
+    toast({
+      title: "Sucesso!",
+      description: "Conteúdo atualizado com sucesso",
+    });
+  };
+
+  const handleDeleteContent = (contentId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este conteúdo? Esta ação não pode ser desfeita.')) {
+      deleteContent(contentId);
+      toast({
+        title: "Conteúdo excluído",
+        description: "O conteúdo foi removido do seu portfolio",
+      });
+    }
   };
 
   const handleProfileUpdate = () => {
@@ -114,40 +170,60 @@ const ModelDashboard = () => {
 
   const handleThumbnailUpload = (urls: string[]) => {
     if (urls.length > 0) {
-      setNewContent({ ...newContent, thumbnail: urls[0] });
+      if (editingContent) {
+        setEditingContent({ ...editingContent, thumbnail: urls[0] });
+      } else {
+        setNewContent({ ...newContent, thumbnail: urls[0] });
+      }
     }
   };
 
   const handleMediaUpload = (urls: string[]) => {
-    setNewContent({ 
-      ...newContent, 
-      mediaFiles: [...newContent.mediaFiles, ...urls] 
-    });
+    if (editingContent) {
+      setEditingContent({ 
+        ...editingContent, 
+        mediaFiles: [...editingContent.mediaFiles, ...urls] 
+      });
+    } else {
+      setNewContent({ 
+        ...newContent, 
+        mediaFiles: [...newContent.mediaFiles, ...urls] 
+      });
+    }
   };
 
   const removeThumbnail = () => {
-    setNewContent({ ...newContent, thumbnail: '' });
+    if (editingContent) {
+      setEditingContent({ ...editingContent, thumbnail: '' });
+    } else {
+      setNewContent({ ...newContent, thumbnail: '' });
+    }
   };
 
   const removeMediaFile = (index: number) => {
-    const updatedFiles = newContent.mediaFiles.filter((_, i) => i !== index);
-    setNewContent({ ...newContent, mediaFiles: updatedFiles });
+    if (editingContent) {
+      const updatedFiles = editingContent.mediaFiles.filter((_: any, i: number) => i !== index);
+      setEditingContent({ ...editingContent, mediaFiles: updatedFiles });
+    } else {
+      const updatedFiles = newContent.mediaFiles.filter((_, i) => i !== index);
+      setNewContent({ ...newContent, mediaFiles: updatedFiles });
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold text-white mb-2">Dashboard da Modelo</h1>
-        <p className="text-gray-400">Gerencie seu conteúdo e aprove pagamentos</p>
+        <p className="text-gray-400">Gerencie seu portfolio e aprove pagamentos</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4 bg-hotelite-gray">
           <TabsTrigger value="overview" className="text-white data-[state=active]:bg-hotelite-red">
-            Visão Geral
+            Portfolio
           </TabsTrigger>
           <TabsTrigger value="upload" className="text-white data-[state=active]:bg-hotelite-red">
-            Upload
+            Adicionar
           </TabsTrigger>
           <TabsTrigger value="payments" className="text-white data-[state=active]:bg-hotelite-red">
             Pagamentos
@@ -191,8 +267,15 @@ const ModelDashboard = () => {
           </div>
 
           <Card className="glass-effect border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Meus Conteúdos</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white">Meu Portfolio</CardTitle>
+              <Button 
+                onClick={() => setActiveTab('upload')}
+                className="btn-primary"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Conteúdo
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -216,17 +299,94 @@ const ModelDashboard = () => {
                       )}
                     </div>
                     <h3 className="text-white font-semibold mb-1">{content.title}</h3>
-                    <p className="text-gray-400 text-sm mb-2">{content.description.slice(0, 100)}...</p>
-                    <p className="text-hotelite-red font-bold mb-3">R$ {content.price.toFixed(2)}</p>
+                    <p className="text-gray-400 text-sm mb-2 line-clamp-2">{content.description}</p>
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="secondary" className="bg-hotelite-red text-white">
+                        {content.mediaType === 'video' ? 'Vídeo' : content.mediaType === 'both' ? 'Misto' : 'Foto'}
+                      </Badge>
+                      <p className="text-gray-400 text-sm">
+                        {content.mediaFiles.length} arquivo{content.mediaFiles.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Editar
-                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => handleEditContent(content)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Editar
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-hotelite-dark border-gray-700">
+                          <DialogHeader>
+                            <DialogTitle className="text-white">Editar Conteúdo</DialogTitle>
+                          </DialogHeader>
+                          {editingContent && (
+                            <div className="space-y-4">
+                              <div>
+                                <Label className="text-white">Título</Label>
+                                <Input
+                                  className="input-field"
+                                  value={editingContent.title}
+                                  onChange={(e) => setEditingContent({...editingContent, title: e.target.value})}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-white">Descrição</Label>
+                                <Textarea
+                                  className="input-field resize-none"
+                                  rows={3}
+                                  value={editingContent.description}
+                                  onChange={(e) => setEditingContent({...editingContent, description: e.target.value})}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-white">Thumbnail</Label>
+                                <FileUpload
+                                  type="thumbnail"
+                                  accept="image/*"
+                                  multiple={false}
+                                  onFilesUploaded={handleThumbnailUpload}
+                                  uploadedFiles={editingContent.thumbnail ? [editingContent.thumbnail] : []}
+                                  onRemoveFile={removeThumbnail}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-white">Arquivos de Mídia</Label>
+                                <FileUpload
+                                  type="media"
+                                  accept="image/*,video/*"
+                                  multiple={true}
+                                  maxFiles={10}
+                                  onFilesUploaded={handleMediaUpload}
+                                  uploadedFiles={editingContent.mediaFiles}
+                                  onRemoveFile={removeMediaFile}
+                                />
+                              </div>
+                              <div className="flex space-x-2">
+                                <Button onClick={handleUpdateContent} className="btn-primary flex-1">
+                                  Salvar Alterações
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => setEditingContent(null)}
+                                  className="flex-1"
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </DialogContent>
+                      </Dialog>
                       <Button 
                         size="sm" 
                         variant="destructive" 
-                        onClick={() => deleteContent(content.id)}
+                        onClick={() => handleDeleteContent(content.id)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -234,6 +394,20 @@ const ModelDashboard = () => {
                   </div>
                 ))}
               </div>
+              {myContents.length === 0 && (
+                <div className="text-center py-12">
+                  <Image className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">Nenhum conteúdo no portfolio</p>
+                  <p className="text-gray-500 text-sm mb-4">Adicione conteúdos para atrair clientes</p>
+                  <Button 
+                    onClick={() => setActiveTab('upload')}
+                    className="btn-primary"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Primeiro Conteúdo
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -241,7 +415,8 @@ const ModelDashboard = () => {
         <TabsContent value="upload" className="space-y-6">
           <Card className="glass-effect border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">Adicionar Novo Conteúdo</CardTitle>
+              <CardTitle className="text-white">Adicionar Novo Conteúdo ao Portfolio</CardTitle>
+              <p className="text-gray-400 text-sm">Todo conteúdo adicionado fica disponível para quem comprar seu plano mensal</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleContentSubmit} className="space-y-6">
@@ -266,21 +441,6 @@ const ModelDashboard = () => {
                     rows={3}
                     value={newContent.description}
                     onChange={(e) => setNewContent({...newContent, description: e.target.value})}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="content-price" className="text-white">Preço (R$) *</Label>
-                  <Input
-                    id="content-price"
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    placeholder="29.99"
-                    className="input-field"
-                    value={newContent.price || ''}
-                    onChange={(e) => setNewContent({...newContent, price: Number(e.target.value)})}
                     required
                   />
                 </div>
@@ -311,7 +471,7 @@ const ModelDashboard = () => {
                 </div>
 
                 <Button type="submit" className="w-full btn-primary">
-                  Publicar Conteúdo
+                  Adicionar ao Portfolio
                 </Button>
               </form>
             </CardContent>

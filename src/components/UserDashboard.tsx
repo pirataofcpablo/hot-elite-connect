@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
-import { Heart, CreditCard, Clock, CheckCircle, Upload, Eye, User } from 'lucide-react';
+import { Heart, CreditCard, Clock, CheckCircle, Upload, Eye, User, Image, Video, Play } from 'lucide-react';
 
 const UserDashboard = () => {
   const { user } = useAuth();
@@ -18,12 +18,13 @@ const UserDashboard = () => {
   
   const [activeTab, setActiveTab] = useState('marketplace');
   const [selectedModel, setSelectedModel] = useState<any>(null);
+  const [viewingContent, setViewingContent] = useState<any>(null);
 
   const userPurchases = getUserPurchases(user?.id || '');
   const approvedPurchases = userPurchases.filter(p => p.status === 'approved');
 
-  // Filtrar apenas modelos que têm foto de perfil
-  const availableModels = models.filter(model => model.profileImage);
+  // Mostrar todas as modelos no marketplace
+  const availableModels = models;
 
   const handlePurchase = (model: any) => {
     const existingPurchase = userPurchases.find(
@@ -65,7 +66,6 @@ const UserDashboard = () => {
   };
 
   const handleUploadProof = (purchaseId: string) => {
-    // Simular upload de comprovante
     const fakeProofUrl = 'https://via.placeholder.com/300x400/000000/e10600?text=Comprovante';
     
     updatePurchase(purchaseId, {
@@ -76,6 +76,11 @@ const UserDashboard = () => {
       title: "Comprovante Enviado!",
       description: "Aguarde a aprovação da modelo",
     });
+  };
+
+  const handleViewContent = (model: any) => {
+    const modelContents = getContentsByModel(model.id);
+    setViewingContent({ model, contents: modelContents });
   };
 
   const renderPaymentInfo = (model: any) => {
@@ -103,7 +108,81 @@ const UserDashboard = () => {
           )}
           <div className="mt-3 p-3 bg-hotelite-red/20 rounded border border-hotelite-red">
             <p className="text-white font-semibold">Valor: R$ {model.monthlyPrice || 30}.00</p>
-            <p className="text-gray-300 text-sm">Acesso por 30 dias</p>
+            <p className="text-gray-300 text-sm">Acesso por 30 dias a TODO o conteúdo</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderContentViewer = () => {
+    if (!viewingContent) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+        <div className="bg-hotelite-dark rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                Portfolio de {viewingContent.model.name}
+              </h2>
+              <Button 
+                variant="outline" 
+                onClick={() => setViewingContent(null)}
+              >
+                Fechar
+              </Button>
+            </div>
+
+            {viewingContent.contents.length === 0 ? (
+              <div className="text-center py-12">
+                <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg">Nenhum conteúdo disponível</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {viewingContent.contents.map((content: any) => (
+                  <div key={content.id} className="glass-effect rounded-lg overflow-hidden">
+                    <div className="aspect-video bg-hotelite-gray relative">
+                      {content.thumbnail ? (
+                        <img 
+                          src={content.thumbnail} 
+                          alt={content.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          {content.mediaType === 'video' ? (
+                            <Video className="h-8 w-8 text-gray-400" />
+                          ) : (
+                            <Image className="h-8 w-8 text-gray-400" />
+                          )}
+                        </div>
+                      )}
+                      {content.mediaType === 'video' && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Play className="h-12 w-12 text-white/80" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-white font-semibold mb-2">{content.title}</h3>
+                      <p className="text-gray-400 text-sm mb-3 line-clamp-2">
+                        {content.description}
+                      </p>
+                      <div className="flex justify-between items-center">
+                        <Badge variant="secondary" className="bg-hotelite-red text-white">
+                          {content.mediaType === 'video' ? 'Vídeo' : content.mediaType === 'both' ? 'Misto' : 'Foto'}
+                        </Badge>
+                        <p className="text-gray-400 text-sm">
+                          {content.mediaFiles.length} arquivo{content.mediaFiles.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -161,7 +240,7 @@ const UserDashboard = () => {
 
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="secondary" className="bg-hotelite-red text-white">
-                          {model.totalContent} conteúdos
+                          {model.totalContent} conteúdo{model.totalContent !== 1 ? 's' : ''}
                         </Badge>
                         <p className="text-hotelite-red font-bold text-lg">
                           R$ {model.monthlyPrice || 30}/mês
@@ -171,16 +250,10 @@ const UserDashboard = () => {
                       {hasAccess(user?.id || '', model.id) ? (
                         <Button 
                           className="w-full bg-green-600 hover:bg-green-700"
-                          onClick={() => {
-                            setSelectedModel(model);
-                            toast({
-                              title: "Acessando conteúdo",
-                              description: `Visualizando conteúdo de ${model.name}`,
-                            });
-                          }}
+                          onClick={() => handleViewContent(model)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
-                          Ver Conteúdo
+                          Ver Portfolio Completo
                         </Button>
                       ) : (
                         <Button 
@@ -188,11 +261,10 @@ const UserDashboard = () => {
                           onClick={() => handlePurchase(model)}
                         >
                           <CreditCard className="h-4 w-4 mr-2" />
-                          Comprar Acesso (30 dias)
+                          Comprar Acesso Total
                         </Button>
                       )}
 
-                      {/* Mostrar dados de pagamento se foi selecionado para compra */}
                       {selectedModel?.id === model.id && !hasAccess(user?.id || '', model.id) && (
                         renderPaymentInfo(model)
                       )}
@@ -305,15 +377,10 @@ const UserDashboard = () => {
                               <Button 
                                 size="sm" 
                                 className="bg-green-600 hover:bg-green-700"
-                                onClick={() => {
-                                  toast({
-                                    title: "Acessando conteúdo",
-                                    description: `Visualizando conteúdo de ${model?.name}`,
-                                  });
-                                }}
+                                onClick={() => handleViewContent(model)}
                               >
                                 <Eye className="h-3 w-3 mr-1" />
-                                Ver Conteúdo
+                                Ver Portfolio
                               </Button>
                             )}
                           </div>
@@ -346,6 +413,8 @@ const UserDashboard = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {renderContentViewer()}
     </div>
   );
 };
