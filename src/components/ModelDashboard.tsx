@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../hooks/useContent';
@@ -11,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Upload, DollarSign, Users, CheckCircle, XCircle, Edit, Trash2, Image, Video } from 'lucide-react';
+import { DollarSign, Users, CheckCircle, XCircle, Edit, Trash2, Image, Video } from 'lucide-react';
+import FileUpload from './FileUpload';
 
 const ModelDashboard = () => {
   const { user, updateUser } = useAuth();
@@ -52,8 +52,38 @@ const ModelDashboard = () => {
       return;
     }
 
+    if (!newContent.thumbnail) {
+      toast({
+        title: "Erro",
+        description: "Adicione uma thumbnail para o conteúdo",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newContent.mediaFiles.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um arquivo de mídia",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Determinar tipo de mídia baseado nos arquivos enviados
+    const hasImages = newContent.mediaFiles.some(file => file.startsWith('data:image/'));
+    const hasVideos = newContent.mediaFiles.some(file => file.startsWith('data:video/'));
+    
+    let mediaType: 'image' | 'video' | 'both' = 'image';
+    if (hasImages && hasVideos) {
+      mediaType = 'both';
+    } else if (hasVideos) {
+      mediaType = 'video';
+    }
+
     addContent({
       ...newContent,
+      mediaType,
       modelId: user?.id || '',
       isActive: true,
     });
@@ -82,21 +112,26 @@ const ModelDashboard = () => {
     });
   };
 
-  const handleFileUpload = (type: 'thumbnail' | 'media') => {
-    // Simular upload de arquivo
-    const fakeUrl = `https://via.placeholder.com/400x300/000000/e10600?text=${type}`;
-    if (type === 'thumbnail') {
-      setNewContent({ ...newContent, thumbnail: fakeUrl });
-    } else {
-      setNewContent({ 
-        ...newContent, 
-        mediaFiles: [...newContent.mediaFiles, fakeUrl] 
-      });
+  const handleThumbnailUpload = (urls: string[]) => {
+    if (urls.length > 0) {
+      setNewContent({ ...newContent, thumbnail: urls[0] });
     }
-    toast({
-      title: "Arquivo enviado!",
-      description: `${type === 'thumbnail' ? 'Thumbnail' : 'Mídia'} adicionada com sucesso`,
+  };
+
+  const handleMediaUpload = (urls: string[]) => {
+    setNewContent({ 
+      ...newContent, 
+      mediaFiles: [...newContent.mediaFiles, ...urls] 
     });
+  };
+
+  const removeThumbnail = () => {
+    setNewContent({ ...newContent, thumbnail: '' });
+  };
+
+  const removeMediaFile = (index: number) => {
+    const updatedFiles = newContent.mediaFiles.filter((_, i) => i !== index);
+    setNewContent({ ...newContent, mediaFiles: updatedFiles });
   };
 
   return (
@@ -127,7 +162,7 @@ const ModelDashboard = () => {
             <Card className="glass-effect border-gray-700">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-400">Total de Conteúdos</CardTitle>
-                <Upload className="h-4 w-4 text-hotelite-red" />
+                <Image className="h-4 w-4 text-hotelite-red" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-white">{myContents.length}</div>
@@ -163,11 +198,21 @@ const ModelDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myContents.map((content) => (
                   <div key={content.id} className="glass-effect p-4 rounded-lg border border-gray-700">
-                    <div className="aspect-video bg-hotelite-gray rounded-lg mb-3 flex items-center justify-center">
-                      {content.mediaType === 'video' ? (
-                        <Video className="h-8 w-8 text-gray-400" />
+                    <div className="aspect-video bg-hotelite-gray rounded-lg mb-3 overflow-hidden">
+                      {content.thumbnail ? (
+                        <img 
+                          src={content.thumbnail} 
+                          alt={content.title}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <Image className="h-8 w-8 text-gray-400" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          {content.mediaType === 'video' ? (
+                            <Video className="h-8 w-8 text-gray-400" />
+                          ) : (
+                            <Image className="h-8 w-8 text-gray-400" />
+                          )}
+                        </div>
                       )}
                     </div>
                     <h3 className="text-white font-semibold mb-1">{content.title}</h3>
@@ -199,7 +244,7 @@ const ModelDashboard = () => {
               <CardTitle className="text-white">Adicionar Novo Conteúdo</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleContentSubmit} className="space-y-4">
+              <form onSubmit={handleContentSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="content-title" className="text-white">Título do Conteúdo *</Label>
                   <Input
@@ -218,6 +263,7 @@ const ModelDashboard = () => {
                     id="content-description"
                     placeholder="Descreva o conteúdo..."
                     className="input-field resize-none"
+                    rows={3}
                     value={newContent.description}
                     onChange={(e) => setNewContent({...newContent, description: e.target.value})}
                     required
@@ -240,48 +286,28 @@ const ModelDashboard = () => {
                 </div>
 
                 <div>
-                  <Label className="text-white">Thumbnail de Apresentação</Label>
-                  <Button 
-                    type="button"
-                    onClick={() => handleFileUpload('thumbnail')}
-                    className="w-full btn-secondary mt-2"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Escolher Thumbnail
-                  </Button>
-                  {newContent.thumbnail && (
-                    <div className="mt-2">
-                      <img 
-                        src={newContent.thumbnail} 
-                        alt="Thumbnail" 
-                        className="w-32 h-24 object-cover rounded"
-                      />
-                    </div>
-                  )}
+                  <Label className="text-white">Thumbnail de Apresentação *</Label>
+                  <FileUpload
+                    type="thumbnail"
+                    accept="image/*"
+                    multiple={false}
+                    onFilesUploaded={handleThumbnailUpload}
+                    uploadedFiles={newContent.thumbnail ? [newContent.thumbnail] : []}
+                    onRemoveFile={removeThumbnail}
+                  />
                 </div>
 
                 <div>
-                  <Label className="text-white">Arquivos de Mídia</Label>
-                  <Button 
-                    type="button"
-                    onClick={() => handleFileUpload('media')}
-                    className="w-full btn-secondary mt-2"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Adicionar Foto/Vídeo
-                  </Button>
-                  {newContent.mediaFiles.length > 0 && (
-                    <div className="mt-2 grid grid-cols-4 gap-2">
-                      {newContent.mediaFiles.map((file, index) => (
-                        <img 
-                          key={index}
-                          src={file} 
-                          alt={`Mídia ${index + 1}`} 
-                          className="w-full h-16 object-cover rounded"
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <Label className="text-white">Arquivos de Mídia *</Label>
+                  <FileUpload
+                    type="media"
+                    accept="image/*,video/*"
+                    multiple={true}
+                    maxFiles={10}
+                    onFilesUploaded={handleMediaUpload}
+                    uploadedFiles={newContent.mediaFiles}
+                    onRemoveFile={removeMediaFile}
+                  />
                 </div>
 
                 <Button type="submit" className="w-full btn-primary">
@@ -317,7 +343,7 @@ const ModelDashboard = () => {
                               <img 
                                 src={purchase.paymentProof} 
                                 alt="Comprovante" 
-                                className="w-32 h-24 object-cover rounded mt-1"
+                                className="w-32 h-24 object-cover rounded mt-1 border border-gray-700"
                               />
                             </div>
                           )}
