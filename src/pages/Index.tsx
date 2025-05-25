@@ -59,21 +59,31 @@ const Index = () => {
     }
 
     setIsSubmitting(true);
-    const success = await login(loginData.email, loginData.password);
-    
-    if (success) {
-      toast({
-        title: "Sucesso!",
-        description: "Login realizado com sucesso",
-      });
-    } else {
+    try {
+      const success = await login(loginData.email, loginData.password);
+      
+      if (success) {
+        toast({
+          title: "Sucesso!",
+          description: "Login realizado com sucesso",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Email ou senha incorretos",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro no login:', error);
       toast({
         title: "Erro",
-        description: "Email ou senha incorretos",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -82,6 +92,15 @@ const Index = () => {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (registerData.password.length < 6) {
+      toast({
+        title: "Erro",
+        description: "A senha deve ter pelo menos 6 caracteres",
         variant: "destructive"
       });
       return;
@@ -98,21 +117,45 @@ const Index = () => {
     }
 
     setIsSubmitting(true);
-    const success = await register(registerData);
-    
-    if (success) {
-      toast({
-        title: "Sucesso!",
-        description: "Conta criada com sucesso",
-      });
-    } else {
+    try {
+      const success = await register(registerData);
+      
+      if (success) {
+        toast({
+          title: "Sucesso!",
+          description: "Conta criada com sucesso! Verifique seu email para confirmar a conta.",
+        });
+        setActiveTab('login');
+        setRegisterData({
+          name: '',
+          email: '',
+          password: '',
+          phone: '',
+          userType: 'user',
+          description: '',
+          pixKey: '',
+          mercadoPagoEmail: '',
+          contactNumber: '',
+          monthlyPrice: 30,
+          profileImage: ''
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar a conta. Verifique se o email já não está em uso.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro no registro:', error);
       toast({
         title: "Erro",
-        description: "Email já está em uso",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleProfileImageUpload = (urls: string[]) => {
@@ -242,7 +285,7 @@ const Index = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="reg-password" className="text-white">Senha *</Label>
+                      <Label htmlFor="reg-password" className="text-white">Senha * (mínimo 6 caracteres)</Label>
                       <Input
                         id="reg-password"
                         type="password"
@@ -250,6 +293,7 @@ const Index = () => {
                         className="input-field"
                         value={registerData.password}
                         onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                        minLength={6}
                         required
                       />
                     </div>
