@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
-import { Heart, CreditCard, Clock, CheckCircle, Upload, Eye } from 'lucide-react';
+import { Heart, CreditCard, Clock, CheckCircle, Upload, Eye, User } from 'lucide-react';
 
 const UserDashboard = () => {
   const { user } = useAuth();
@@ -20,6 +21,9 @@ const UserDashboard = () => {
 
   const userPurchases = getUserPurchases(user?.id || '');
   const approvedPurchases = userPurchases.filter(p => p.status === 'approved');
+
+  // Filtrar apenas modelos que têm foto de perfil
+  const availableModels = models.filter(model => model.profileImage);
 
   const handlePurchase = (model: any) => {
     const existingPurchase = userPurchases.find(
@@ -129,58 +133,73 @@ const UserDashboard = () => {
               <CardTitle className="text-white">Modelos Disponíveis</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {models.map((model) => (
-                  <div key={model.id} className="glass-effect p-4 rounded-lg border border-gray-700 card-hover">
-                    <div className="aspect-square bg-hotelite-gray rounded-lg mb-4 flex items-center justify-center">
-                      <Heart className="h-12 w-12 text-gray-400" />
+              {availableModels.length === 0 ? (
+                <div className="text-center py-12">
+                  <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg">Nenhuma modelo disponível no momento</p>
+                  <p className="text-gray-500 text-sm">Aguarde novas modelos se cadastrarem</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {availableModels.map((model) => (
+                    <div key={model.id} className="glass-effect p-4 rounded-lg border border-gray-700 card-hover">
+                      <div className="flex flex-col items-center mb-4">
+                        <Avatar className="h-24 w-24 mb-3">
+                          <AvatarImage src={model.profileImage} alt={model.name} />
+                          <AvatarFallback className="bg-hotelite-gray text-white text-xl">
+                            <User className="h-12 w-12" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <h3 className="text-white font-semibold text-lg text-center">{model.name}</h3>
+                      </div>
+                      
+                      {model.description && (
+                        <p className="text-gray-400 text-sm mb-3 line-clamp-2 text-center">
+                          {model.description}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge variant="secondary" className="bg-hotelite-red text-white">
+                          {model.totalContent} conteúdos
+                        </Badge>
+                        <p className="text-hotelite-red font-bold text-lg">
+                          R$ {model.monthlyPrice || 30}/mês
+                        </p>
+                      </div>
+
+                      {hasAccess(user?.id || '', model.id) ? (
+                        <Button 
+                          className="w-full bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            setSelectedModel(model);
+                            toast({
+                              title: "Acessando conteúdo",
+                              description: `Visualizando conteúdo de ${model.name}`,
+                            });
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Conteúdo
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full btn-primary"
+                          onClick={() => handlePurchase(model)}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Comprar Acesso (30 dias)
+                        </Button>
+                      )}
+
+                      {/* Mostrar dados de pagamento se foi selecionado para compra */}
+                      {selectedModel?.id === model.id && !hasAccess(user?.id || '', model.id) && (
+                        renderPaymentInfo(model)
+                      )}
                     </div>
-                    
-                    <h3 className="text-white font-semibold text-lg mb-2">{model.name}</h3>
-                    
-                    {model.description && (
-                      <p className="text-gray-400 text-sm mb-3 line-clamp-2">
-                        {model.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge variant="secondary" className="bg-hotelite-red text-white">
-                        {model.totalContent} conteúdos
-                      </Badge>
-                      <p className="text-hotelite-red font-bold text-lg">
-                        R$ {model.monthlyPrice || 30}/mês
-                      </p>
-                    </div>
-
-                    {hasAccess(user?.id || '', model.id) ? (
-                      <Button 
-                        className="w-full bg-green-600 hover:bg-green-700"
-                        onClick={() => {
-                          setSelectedModel(model);
-                          // Navegar para visualizar conteúdo
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver Conteúdo
-                      </Button>
-                    ) : (
-                      <Button 
-                        className="w-full btn-primary"
-                        onClick={() => handlePurchase(model)}
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Comprar Acesso (30 dias)
-                      </Button>
-                    )}
-
-                    {/* Mostrar dados de pagamento se foi selecionado para compra */}
-                    {selectedModel?.id === model.id && !hasAccess(user?.id || '', model.id) && (
-                      renderPaymentInfo(model)
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -230,35 +249,43 @@ const UserDashboard = () => {
               ) : (
                 <div className="space-y-4">
                   {userPurchases.map((purchase) => {
-                    const model = models.find(m => m.id === purchase.modelId);
+                    const model = availableModels.find(m => m.id === purchase.modelId);
                     return (
                       <div key={purchase.id} className="glass-effect p-4 rounded-lg border border-gray-700">
                         <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="text-white font-semibold">{model?.name}</h4>
-                            <p className="text-gray-400">R$ {purchase.amount.toFixed(2)}</p>
-                            <p className="text-gray-400 text-sm">
-                              {new Date(purchase.createdAt).toLocaleDateString('pt-BR')}
-                            </p>
-                            
-                            <div className="mt-2">
-                              {purchase.status === 'pending' && (
-                                <Badge variant="secondary" className="bg-yellow-600">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Aguardando Aprovação
-                                </Badge>
-                              )}
-                              {purchase.status === 'approved' && (
-                                <Badge variant="secondary" className="bg-green-600">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Aprovado
-                                </Badge>
-                              )}
-                              {purchase.status === 'rejected' && (
-                                <Badge variant="destructive">
-                                  Rejeitado
-                                </Badge>
-                              )}
+                          <div className="flex items-center space-x-3 flex-1">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={model?.profileImage} alt={model?.name} />
+                              <AvatarFallback className="bg-hotelite-gray text-white">
+                                <User className="h-6 w-6" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="text-white font-semibold">{model?.name}</h4>
+                              <p className="text-gray-400">R$ {purchase.amount.toFixed(2)}</p>
+                              <p className="text-gray-400 text-sm">
+                                {new Date(purchase.createdAt).toLocaleDateString('pt-BR')}
+                              </p>
+                              
+                              <div className="mt-2">
+                                {purchase.status === 'pending' && (
+                                  <Badge variant="secondary" className="bg-yellow-600">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Aguardando Aprovação
+                                  </Badge>
+                                )}
+                                {purchase.status === 'approved' && (
+                                  <Badge variant="secondary" className="bg-green-600">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Aprovado
+                                  </Badge>
+                                )}
+                                {purchase.status === 'rejected' && (
+                                  <Badge variant="destructive">
+                                    Rejeitado
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
@@ -279,7 +306,6 @@ const UserDashboard = () => {
                                 size="sm" 
                                 className="bg-green-600 hover:bg-green-700"
                                 onClick={() => {
-                                  // Navegar para o conteúdo da modelo
                                   toast({
                                     title: "Acessando conteúdo",
                                     description: `Visualizando conteúdo de ${model?.name}`,

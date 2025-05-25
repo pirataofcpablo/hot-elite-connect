@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Heart, Lock, Star, Users, Shield, Smartphone } from 'lucide-react';
 import Dashboard from './Dashboard';
+import FileUpload from '../components/FileUpload';
 
 const Index = () => {
   const { isAuthenticated, login, register, isLoading } = useAuth();
@@ -28,7 +29,8 @@ const Index = () => {
     pixKey: '',
     mercadoPagoEmail: '',
     contactNumber: '',
-    monthlyPrice: 30
+    monthlyPrice: 30,
+    profileImage: ''
   });
   const [activeTab, setActiveTab] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,6 +87,16 @@ const Index = () => {
       return;
     }
 
+    // Verificar se é modelo e se tem foto de perfil
+    if (registerData.userType === 'model' && !registerData.profileImage) {
+      toast({
+        title: "Erro",
+        description: "Modelos devem adicionar uma foto de perfil",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     const success = await register(registerData);
     
@@ -101,6 +113,16 @@ const Index = () => {
       });
     }
     setIsSubmitting(false);
+  };
+
+  const handleProfileImageUpload = (urls: string[]) => {
+    if (urls.length > 0) {
+      setRegisterData({...registerData, profileImage: urls[0]});
+    }
+  };
+
+  const removeProfileImage = () => {
+    setRegisterData({...registerData, profileImage: ''});
   };
 
   return (
@@ -265,6 +287,17 @@ const Index = () => {
 
                     {registerData.userType === 'model' && (
                       <>
+                        <div>
+                          <Label className="text-white">Foto de Perfil *</Label>
+                          <FileUpload
+                            onFilesUploaded={handleProfileImageUpload}
+                            accept="image/*"
+                            multiple={false}
+                            uploadedFiles={registerData.profileImage ? [registerData.profileImage] : []}
+                            onRemoveFile={removeProfileImage}
+                            type="thumbnail"
+                          />
+                        </div>
                         <div>
                           <Label htmlFor="description" className="text-white">Descrição do Perfil</Label>
                           <Textarea
